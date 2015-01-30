@@ -1,5 +1,5 @@
 # good-coder-python
-good coder of python
+
 
 
 在调研过程中，经常需要对一些网站进行定向抓取。由于python包含各种强大的库，使用python做定向抓取比较简单。请使用python开发一个迷你定向抓取器mini\_spider.py，实现对种子链接的广度优先抓取，并把URL长相符合特定pattern的网页保存到磁盘上。
@@ -58,7 +58,7 @@ http://www.sina.com.cn
 参考: http://docs.python.org/2/howto/argparse.html  
 参考: http://www.cnblogs.com/jianboqi/archive/2013/01/10/2854726.html  
 
-- ConfigParser(配置文件读取)
+- ConfigParser(配置文件读取)  
 参考: http://docs.python.org/2/library/configparser.html  
 参考: http://blog.chinaunix.net/uid-25890465-id-3312861.html
 
