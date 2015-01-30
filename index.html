@@ -1,0 +1,137 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Good-coder-python by caimaoy</title>
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script src="javascripts/respond.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!--[if lt IE 8]>
+    <link rel="stylesheet" href="stylesheets/ie.css">
+    <![endif]-->
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+  </head>
+  <body>
+      <div id="header">
+        <nav>
+          <li class="fork"><a href="https://github.com/caimaoy/good-coder-python">View On GitHub</a></li>
+          <li class="downloads"><a href="https://github.com/caimaoy/good-coder-python/zipball/master">ZIP</a></li>
+          <li class="downloads"><a href="https://github.com/caimaoy/good-coder-python/tarball/master">TAR</a></li>
+          <li class="title">DOWNLOADS</li>
+        </nav>
+      </div><!-- end header -->
+
+    <div class="wrapper">
+
+      <section>
+        <div id="title">
+          <h1>Good-coder-python</h1>
+          <p>good coder of python</p>
+          <hr>
+          <span class="credits left">Project maintained by <a href="https://github.com/caimaoy">caimaoy</a></span>
+          <span class="credits right">Hosted on GitHub Pages &mdash; Theme by <a href="https://twitter.com/michigangraham">mattgraham</a></span>
+        </div>
+
+        <h1>
+<a id="good-coder-python" class="anchor" href="#good-coder-python" aria-hidden="true"><span class="octicon octicon-link"></span></a>good-coder-python</h1>
+
+<p>在调研过程中，经常需要对一些网站进行定向抓取。由于python包含各种强大的库，使用python做定向抓取比较简单。请使用python开发一个迷你定向抓取器mini_spider.py，实现对种子链接的广度优先抓取，并把URL长相符合特定pattern的网页保存到磁盘上。
+程序运行: 
+python mini_spider.py -c spider.conf </p>
+
+<h3>
+<a id="配置文件spiderconf" class="anchor" href="#%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6spiderconf" aria-hidden="true"><span class="octicon octicon-link"></span></a>配置文件spider.conf:</h3>
+
+<hr>
+
+<pre><code>[spider] 
+url_list_file: ./urls ; 种子文件路径 
+output_directory: ./output ; 抓取结果存储目录 
+max_depth: 1 ; 最大抓取深度(种子为0级) 
+crawl_interval: 1 ; 抓取间隔. 单位: 秒 
+crawl_timeout: 1 ; 抓取超时. 单位: 秒 
+target_url: .*\.(gif|png|jpg|bmp)$ ; 需要存储的目标网页URL pattern(正则表达式) 
+thread_count: 8 ; 抓取线程数 
+</code></pre>
+
+<p>种子文件每行一条链接，例如:<br>
+<a href="http://www.baidu.com">http://www.baidu.com</a><br>
+<a href="http://www.sina.com.cn">http://www.sina.com.cn</a>  </p>
+
+<h3>
+<a id="要求和注意事项" class="anchor" href="#%E8%A6%81%E6%B1%82%E5%92%8C%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9" aria-hidden="true"><span class="octicon octicon-link"></span></a>要求和注意事项:</h3>
+
+<hr>
+
+<ol>
+<li>需要支持命令行参数处理。具体包含: -h(帮助)、-v(版本)、-c(配置文件)<br>
+</li>
+<li>需要按照广度优先的顺序抓取网页。<br>
+</li>
+<li>单个网页抓取或解析失败，不能导致整个程序退出。需要在日志中记录下错误原因并继续。<br>
+</li>
+<li>当程序完成所有抓取任务后，必须优雅退出。</li>
+<li>从HTML提取链接时需要处理相对路径和绝对路径。</li>
+<li>需要能够处理不同字符编码的网页(例如utf-8或gbk)。</li>
+<li>网页存储时每个网页单独存为一个文件，以URL为文件名。注意对URL中的特殊字符，需要做转义。</li>
+<li>要求支持多线程并行抓取。</li>
+<li>代码严格遵守百度python编码规范</li>
+<li>代码的可读性和可维护性好。注意模块、类、函数的设计和划分</li>
+<li>完成相应的单元测试和使用demo。你的demo必须可运行，单元测试有效而且通过</li>
+<li>注意控制抓取间隔和总量，避免对方网站封禁百度IP。PS Python CM委员会为大家提供测试抓取网站: <a href="http://pycm.baidu.com:8081">http://pycm.baidu.com:8081</a>
+</li>
+</ol>
+
+<h3>
+<a id="提示下面的python库可能对你完成测试题有帮助" class="anchor" href="#%E6%8F%90%E7%A4%BA%E4%B8%8B%E9%9D%A2%E7%9A%84python%E5%BA%93%E5%8F%AF%E8%83%BD%E5%AF%B9%E4%BD%A0%E5%AE%8C%E6%88%90%E6%B5%8B%E8%AF%95%E9%A2%98%E6%9C%89%E5%B8%AE%E5%8A%A9" aria-hidden="true"><span class="octicon octicon-link"></span></a>提示(下面的python库可能对你完成测试题有帮助):</h3>
+
+<hr>
+
+<ul>
+<li><p>re(正则表达式)
+参考: <a href="http://docs.python.org/2/library/re.html">http://docs.python.org/2/library/re.html</a><br>
+参考: <a href="http://www.cnblogs.com/huxi/archive/2010/07/04/1771073.html">http://www.cnblogs.com/huxi/archive/2010/07/04/1771073.html</a><br>
+参考: <a href="http://blog.csdn.net/jgood/article/details/4277902">http://blog.csdn.net/jgood/article/details/4277902</a></p></li>
+<li><p>gevent/threading(多线程)<br>
+参考: <a href="http://docs.python.org/2/library/threading.html">http://docs.python.org/2/library/threading.html</a><br>
+参考: <a href="http://www.cnblogs.com/huxi/archive/2010/06/26/1765808.html">http://www.cnblogs.com/huxi/archive/2010/06/26/1765808.html</a></p></li>
+<li><p>docopt/getopt/argparse(命令行参数处理)<br>
+参考: <a href="https://github.com/docopt/docopt">https://github.com/docopt/docopt</a><br>
+参考: <a href="http://docs.python.org/2/library/getopt.html">http://docs.python.org/2/library/getopt.html</a><br>
+参考: <a href="http://andylin02.iteye.com/blog/845355">http://andylin02.iteye.com/blog/845355</a><br>
+参考: <a href="http://docs.python.org/2/howto/argparse.html">http://docs.python.org/2/howto/argparse.html</a><br>
+参考: <a href="http://www.cnblogs.com/jianboqi/archive/2013/01/10/2854726.html">http://www.cnblogs.com/jianboqi/archive/2013/01/10/2854726.html</a>  </p></li>
+<li><p>ConfigParser(配置文件读取)<br>
+参考: <a href="http://docs.python.org/2/library/configparser.html">http://docs.python.org/2/library/configparser.html</a><br>
+参考: <a href="http://blog.chinaunix.net/uid-25890465-id-3312861.html">http://blog.chinaunix.net/uid-25890465-id-3312861.html</a></p></li>
+<li><p>urllib/urllib2/httplib(网页下载)<br>
+参考: <a href="http://docs.python.org/2/library/urllib2.html">http://docs.python.org/2/library/urllib2.html</a><br>
+参考: <a href="http://blog.csdn.net/wklken/article/details/7364328">http://blog.csdn.net/wklken/article/details/7364328</a><br>
+参考: <a href="http://www.nowamagic.net/academy/detail/1302872">http://www.nowamagic.net/academy/detail/1302872</a>  </p></li>
+<li><p>pyquery/beautifulsoup4/HTMLParser/SGMLParser(HTML解析)<br>
+参考: <a href="http://docs.python.org/2/library/htmlparser.html">http://docs.python.org/2/library/htmlparser.html</a><br>
+参考: <a href="http://cloudaice.com/yong-pythonde-htmlparserfen-xi-htmlye-mian/">http://cloudaice.com/yong-pythonde-htmlparserfen-xi-htmlye-mian/</a><br>
+参考: <a href="http://docs.python.org/2/library/sgmllib.html">http://docs.python.org/2/library/sgmllib.html</a><br>
+参考: <a href="http://pako.iteye.com/blog/592009">http://pako.iteye.com/blog/592009</a>  </p></li>
+<li><p>urlparse(URL解析处理)<br>
+参考: <a href="http://docs.python.org/2/library/urlparse.html">http://docs.python.org/2/library/urlparse.html</a><br>
+参考: <a href="http://blog.sina.com.cn/s/blog_5ff7f94f0100qr3c.html">http://blog.sina.com.cn/s/blog_5ff7f94f0100qr3c.html</a>  </p></li>
+<li>logging(日志处理)<br>
+参考: <a href="http://docs.python.org/2/library/logging.html">http://docs.python.org/2/library/logging.html</a><br>
+参考: <a href="http://kenby.iteye.com/blog/1162698">http://kenby.iteye.com/blog/1162698</a><br>
+参考: <a href="http://my.oschina.net/leejun2005/blog/126713">http://my.oschina.net/leejun2005/blog/126713</a>
+</li>
+</ul>
+      </section>
+
+    </div>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+    
+  </body>
+</html>
