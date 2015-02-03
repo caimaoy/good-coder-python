@@ -21,6 +21,8 @@ Edit by caimaoy
 """
 
 import ConfigParser
+import os
+import string
 import urllib2
 
 from docopt2 import docopt
@@ -36,7 +38,34 @@ print config.get('spider', 'url_list_file') # -> "Python is fun!"
 print config.get('spider', 'thread_count') # -> "Python is fun!"
 """
 
-def donwload_file(url, filename):
+def translator(frm='', to='', delete='', keep=None):
+    """简化字符串translate方法使用，返回函数
+
+    :frm: 要转化的字符
+    :to: 目标字符
+    :delete: 要删除的字符
+    :keep: 要保留的字符
+    :returns: 返回满足要求的函数
+
+    """
+    if len(to) == 1:
+        to = to * len(frm)
+    trans = string.maketrans(frm, to)
+    if keep is not None:
+        all_chars = string.maketrans('', '')
+        delete = all_chars.translate(
+            all_chars,
+            keep.translate(all_chars, delete)
+        )
+    def translate(s):
+        return s.translate(trans, delete)
+    return translate
+
+
+trans_url = translator(frm=r'/\:?<>"|', to='_')
+
+
+def donwload_file_to_local(url, filename):
     """download file from uri
 
     :uri: just uri download file from uri
@@ -96,18 +125,38 @@ class SpiderManager(object):
             logger.error(e)
 
 
+    def download_file(self, url):
+        """下载文件到制定目录
+
+        :url: 需要下载的文件url
+        :returns: TODO
+
+        """
+        if not os.path.exists(self.output_directory):
+            os.mkdir(self.output_directory)
+        trnsurl = trans_url(url)
+        print 'tsnasskdfjkdi is', trnsurl
+        local_file = os.path.join(self.output_directory, trans_url(url))
+        print local_file
+        if os.path.exists(local_file):
+            logger.debug('%s exists' % local_file)
+        else:
+            donwload_file_to_local(url, local_file)
+
+
 if __name__ == '__main__':
-    '''
     arguments = docopt(__doc__, version='mini_spider 1.0')
     logger.debug(arguments)
+    '''
     with open(arguments['-c'], 'r') as f:
         for i in f:
             logger.debug('url is %s' % i)
     '''
-    # config_file = r'D:\caimaoy\good-coder-python\spider.conf'
-    # s = SpiderManager(config_file)
+    config_file = r'D:\caimaoy\good-coder-python\spider.conf'
+    s = SpiderManager(config_file)
     url = r'http://www.baidu.com/img/baidu_jgylogo3.gif?v=22596777.gif'
-    wrong_url = r'http://wwww.baidu.com/img/baidu_jgylogo3.gif?v=22596777.gif'
-    url = wrong_url
-    filename = 'test.gif'
-    donwload_file(url, filename)
+    # wrong_url = r'http://wwww.baidu.com/img/baidu_jgylogo3.gif?v=22596777.gif'
+    # url = wrong_url
+    # filename = 'test.gif'
+    # donwload_file(url, filename)
+    s.download_file(url)
