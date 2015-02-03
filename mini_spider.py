@@ -22,10 +22,13 @@ Edit by caimaoy
 
 import ConfigParser
 import os
+import re
 import string
+import urlparse
 import urllib2
 
 from docopt2 import docopt
+from bs4 import BeautifulSoup as bs
 import log
 
 logger = log.init_log(r'./log/mini_spider.log')
@@ -62,6 +65,7 @@ def translator(frm='', to='', delete='', keep=None):
     return translate
 
 
+# 转义html特殊字符
 trans_url = translator(frm=r'/\:?<>"|', to='_')
 
 
@@ -125,6 +129,22 @@ class SpiderManager(object):
             logger.error(e)
 
 
+class DownlaodWorker(object):
+    """下载类
+    """
+    # TODO 可能写成多线程
+
+    import Queue
+    task = Queue.Queue()
+    task_done = []
+
+
+    def __init__(self, url, out_put_dir, reg):
+        self.out_put_dir = out_put_dir
+        self.url = url
+        self.reg = re.compile(reg)
+        DownlaodWorker.task.put(url)
+
     def download_file(self, url):
         """下载文件到制定目录
 
@@ -132,16 +152,65 @@ class SpiderManager(object):
         :returns: TODO
 
         """
-        if not os.path.exists(self.output_directory):
+        if not os.path.exists(self.out_put_dir):
             os.mkdir(self.output_directory)
-        trnsurl = trans_url(url)
-        print 'tsnasskdfjkdi is', trnsurl
-        local_file = os.path.join(self.output_directory, trans_url(url))
-        print local_file
+        local_file = os.path.join(self.out_put_dir, trans_url(url))
         if os.path.exists(local_file):
             logger.debug('%s exists' % local_file)
         else:
             donwload_file_to_local(url, local_file)
+
+    def find_all_href(self):
+        url = DownlaodWorker.task.get()
+        DownlaodWorker.task_done.append(url)
+        print 'now url is ', url
+        req = urllib2.Request(url)
+        try:
+            ret = urllib2.urlopen(req)
+        except urllib2.URLError as e:
+            if hasattr(e, 'code'):
+                logger.error('The server couldn\'t fulfill the request.')
+                logger.error('Error code: %s' % e.code)
+            elif hasattr(e, 'reason'):
+                logger.error('We failed to reach a server.')
+                logger.error('Reason: %s' % e.reason)
+            else:
+                logger.error('No exception was raised.')
+            return None
+
+        text = ret.read()
+        soup = bs(text)
+        hrefs = []
+        for link in soup('a'):
+            # print link
+            href = link.get('href')
+            # print href
+            hrefs.append(href)
+            '''
+            if self.reg.match(href):
+                print href, 'match'
+            '''
+        ret = []
+        # import pdb; pdb.set_trace()
+        for i in hrefs:
+            if i is not None:
+                if re.match(r'http:', i):
+                    ret.append(i)
+                else:
+                    ret.append(urlparse.urljoin(url, i))
+        # return ret
+        for i in ret:
+            if not i in DownlaodWorker.task_done:
+                DownlaodWorker.task.put(i)
+                print i
+
+    def run(self):
+        while DownlaodWorker.task.not_empty:
+            self.find_all_href()
+            '''
+            for i in href:
+                DownlaodWorker.task.put(i)
+            '''
 
 
 if __name__ == '__main__':
@@ -159,4 +228,9 @@ if __name__ == '__main__':
     # url = wrong_url
     # filename = 'test.gif'
     # donwload_file(url, filename)
-    s.download_file(url)
+    # s.download_file(url)
+    url = r'http://pycm.baidu.com:8081/'
+    reg = r'.*\.(gif|png|jpg|bmp|html)$'
+    d = DownlaodWorker(url, './output', reg)
+    # d.find_all_href()
+    d.run()
