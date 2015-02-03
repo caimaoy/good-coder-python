@@ -139,11 +139,13 @@ class DownlaodWorker(object):
     task_done = []
 
 
-    def __init__(self, url, out_put_dir, reg):
+    def __init__(self, url, out_put_dir, reg, depth, max_depth):
         self.out_put_dir = out_put_dir
         self.url = url
         self.reg = re.compile(reg)
-        DownlaodWorker.task.put(url)
+        self.max_depth = max_depth
+        self.depth = depth
+        DownlaodWorker.task.put((url, depth))
 
     def download_file(self, url):
         """下载文件到制定目录
@@ -161,7 +163,8 @@ class DownlaodWorker(object):
             donwload_file_to_local(url, local_file)
 
     def find_all_href(self):
-        url = DownlaodWorker.task.get()
+        url, depth = DownlaodWorker.task.get()
+        self.depth = depth
         DownlaodWorker.task_done.append(url)
         print 'now url is ', url
         req = urllib2.Request(url)
@@ -191,26 +194,27 @@ class DownlaodWorker(object):
                 print href, 'match'
             '''
         ret = []
-        # import pdb; pdb.set_trace()
         for i in hrefs:
             if i is not None:
                 if re.match(r'http:', i):
                     ret.append(i)
                 else:
                     ret.append(urlparse.urljoin(url, i))
-        # return ret
+
         for i in ret:
-            if not i in DownlaodWorker.task_done:
-                DownlaodWorker.task.put(i)
-                print i
+            if (not i in DownlaodWorker.task_done and
+                self.depth + 1 < self.max_depth):
+
+                print 'depth is ', self.depth
+                print 'max_depth is ', self.max_depth
+
+                # import pdb; pdb.set_trace()
+                DownlaodWorker.task.put((i, depth + 1))
+                print 'put', i
 
     def run(self):
-        while DownlaodWorker.task.not_empty:
+        while not DownlaodWorker.task.empty():
             self.find_all_href()
-            '''
-            for i in href:
-                DownlaodWorker.task.put(i)
-            '''
 
 
 if __name__ == '__main__':
@@ -231,6 +235,6 @@ if __name__ == '__main__':
     # s.download_file(url)
     url = r'http://pycm.baidu.com:8081/'
     reg = r'.*\.(gif|png|jpg|bmp|html)$'
-    d = DownlaodWorker(url, './output', reg)
+    d = DownlaodWorker(url, './output', reg, 0, 8)
     # d.find_all_href()
     d.run()
