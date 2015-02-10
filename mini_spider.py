@@ -66,26 +66,36 @@ def translator(frm='', to='', delete='', keep=None):
 
 
 # 转义html特殊字符
-trans_url = translator(frm=r'/\:?<>"|', to='_')
+# trans_url = translator(frm=r'/\:?<>"|', to='_')
 
 
-def donwload_file_to_local(url, filename):
-    """download file from uri
+def trans_url(s):
+    # TODO rebuild
+    # import pdb; pdb.set_trace()
+    reg = r'[/|\\|:|?|<|>|"|\|]'
+    s = re.sub(reg, '_', s)
+    return s
 
-    :uri: just uri download file from uri
+
+def donwload_file_to_local(url, filename, timeout=1):
+    """download file from url
+
+    :url: just url download file from url
     :filename: download fiile to filename
     :returns: TODO
 
     """
     print 'downloading with urllib2'
-    f = urllib2.urlopen(url)
+    data = None
     try:
+        f = urllib2.urlopen(url, timeout=timeout)
         data = f.read()
     except Exception as e:
         logger.error(e)
 
-    with open(filename, 'wb') as code:
-        code.write(data)
+    if data:
+        with open(filename, 'wb') as code:
+            code.write(data)
 
 
 class SpiderManager(object):
@@ -129,7 +139,7 @@ class SpiderManager(object):
             logger.error(e)
 
 
-class DownlaodWorker(object):
+class DownloadWorker(object):
     """下载类
     """
     # TODO 可能写成多线程
@@ -138,14 +148,29 @@ class DownlaodWorker(object):
     task = Queue.Queue()
     task_done = []
 
-
-    def __init__(self, url, out_put_dir, reg, depth, max_depth):
+    def __init__(self, url, out_put_dir, reg, depth, max_depth, timeout):
         self.out_put_dir = out_put_dir
         self.url = url
         self.reg = re.compile(reg)
         self.max_depth = max_depth
         self.depth = depth
-        DownlaodWorker.task.put((url, depth))
+        self.timeout = timeout
+        self.__MAX_LENTH = 200
+        self.dir_lenth = len(os.path.abspath(self.out_put_dir))
+        self.__MAX_FILE_NAME_LENTH = self.__MAX_LENTH - self.dir_lenth -1
+
+        DownloadWorker.task.put((url, depth))
+
+    def url_to_localfile(self, url):
+        """url 转换为 本地文件名
+
+        :url: url地址
+        :returns: 返回转换后的地址
+
+        """
+        trsurl = trans_url(url)
+        trsurl = trsurl[-self.__MAX_FILE_NAME_LENTH:]
+        return trsurl
 
     def download_file(self, url):
         """下载文件到制定目录
@@ -154,22 +179,27 @@ class DownlaodWorker(object):
         :returns: TODO
 
         """
+        print 'donwloading %s ...' % url
         if not os.path.exists(self.out_put_dir):
             os.mkdir(self.output_directory)
-        local_file = os.path.join(self.out_put_dir, trans_url(url))
+        trsurl = self.url_to_localfile(url)
+        local_file = os.path.join(self.out_put_dir, trsurl)
         if os.path.exists(local_file):
             logger.debug('%s exists' % local_file)
         else:
-            donwload_file_to_local(url, local_file)
+            logger.debug('local_file is %s' % local_file)
+            logger.debug('len(local_file) is %s' % str(len(local_file)))
+            donwload_file_to_local(url, local_file, self.timeout)
 
     def find_all_href(self):
-        url, depth = DownlaodWorker.task.get()
+        url, depth = DownloadWorker.task.get()
         self.depth = depth
-        DownlaodWorker.task_done.append(url)
+        DownloadWorker.task_done.append(url)
         print 'now url is ', url
+        self.url = url
         req = urllib2.Request(url)
         try:
-            ret = urllib2.urlopen(req)
+            ret = urllib2.urlopen(req, timeout=self.timeout)
         except urllib2.URLError as e:
             if hasattr(e, 'code'):
                 logger.error('The server couldn\'t fulfill the request.')
@@ -180,10 +210,21 @@ class DownlaodWorker(object):
             else:
                 logger.error('No exception was raised.')
             return None
+        except Exception as e:
+            logger.error('Error: %s', e)
+            return None
 
-        text = ret.read()
+        try:
+            text = ret.read()
+        except Exception as e:
+            # TODO 可能或有timeout 异常
+            logger.error('Error: %s', e)
+            return None
         soup = bs(text)
         hrefs = []
+
+        self.findall_reg(text)
+
         for link in soup('a'):
             # print link
             href = link.get('href')
@@ -202,19 +243,40 @@ class DownlaodWorker(object):
                     ret.append(urlparse.urljoin(url, i))
 
         for i in ret:
-            if (not i in DownlaodWorker.task_done and
+            if (not i in DownloadWorker.task_done and
                 self.depth + 1 < self.max_depth):
 
                 print 'depth is ', self.depth
                 print 'max_depth is ', self.max_depth
 
                 # import pdb; pdb.set_trace()
-                DownlaodWorker.task.put((i, depth + 1))
-                print 'put', i
+                DownloadWorker.task.put((i, depth + 1))
+                print 'put', i.encode('utf-8', 'ignore')
 
     def run(self):
-        while not DownlaodWorker.task.empty():
+        while not DownloadWorker.task.empty():
             self.find_all_href()
+
+    def findall_reg(self, text):
+        # XXX ooo
+        soup = bs(text)
+        for img in soup('img'):
+            print img
+            src = img.get('src')
+            print '-' * 80
+            print 'src is ', src
+            print 'self.url is ', self.url
+            if src is None:
+                continue
+            res = self.reg.match(src)
+            if res:
+                src = res.group()
+            if src.startswith('http:'):
+                url = src
+            else:
+                url = urlparse.urljoin(self.url, src)
+            self.download_file(url)
+            print '-' * 80
 
 
 if __name__ == '__main__':
@@ -233,8 +295,11 @@ if __name__ == '__main__':
     # filename = 'test.gif'
     # donwload_file(url, filename)
     # s.download_file(url)
-    url = r'http://pycm.baidu.com:8081/'
+    # url = r'http://pycm.baidu.com:8081/'
+    url = r'http://www.baidu.com'
     reg = r'.*\.(gif|png|jpg|bmp|html)$'
-    d = DownlaodWorker(url, './output', reg, 0, 8)
+    d = DownloadWorker(url, './output', reg, 0, 4, 1)
     # d.find_all_href()
     d.run()
+    # text = u'http:\\//tieba.baidu.com/tb/cms/game_test/混沌战域-280-180_1423019686.jpg'
+    # print trans_url(text)
