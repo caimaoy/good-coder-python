@@ -74,41 +74,60 @@ def make_and_start_thread_pool(number_of_thrads_in_pool=5, daemons=False):
         new_thread.start()
         '''
         print i
-        new_thread = myTread()
+        new_thread = myTread(i)
         Pool.append(new_thread)
         new_thread.start()
 
+
+lock = threading.Lock()
+print_lock = threading.Lock()
+
 class myTread(threading.Thread):
-    def __init__(self):
+    def __init__(self, name):
         super(myTread, self).__init__()
         self.isbusy = False
         self.a = 3
+        self.setName(name)
 
     def run(self):
         while True:
             if self.isbusy is True:
+                'I am busy'
                 pass
             else:
+                lock.acquire()
                 finished = False
                 if Qin.empty() is True:
-                    print 'Qin.empty() is ', Qin.empty()
+                    # print 'Qin.empty() is ', Qin.empty()
                     set_isbusy = set([i.isbusy for i in Pool])
                     if True in set_isbusy:
-                        pass
+                        '''
+                        for i in Pool:
+                            print 'someone is busy'
+                            print 'i am ', self.getName()
+                            print i.getName(), 'isbusy', i.isbusy
+                            # time.sleep(10)
+                        '''
+                        lock.release()
+                        continue
                     else:
                         finished = True
                 if finished is True:
+                    lock.release()
                     break
+                self.isbusy = True
+                command, item = Qin.get_nowait()
+                lock.release()
                 time.sleep(1)
-                self.isbusy== True
-                command, item = Qin.get()
                 if command == 'stop':
                     break
                 try:
                     time.sleep(1)
                     if command == 'process':
                         result = 'new' + item
+                        print_lock.acquire()
                         print result
+                        print_lock.release()
                         if self.a:
                             request_work(result)
                             self.a -= 1
@@ -118,7 +137,7 @@ class myTread(threading.Thread):
                     report_error()
                 else:
                     Qout.put(result)
-                self.isbusy== False
+                self.isbusy = False
 
 
 def request_work(data, command='process'):
@@ -153,7 +172,7 @@ def is_any_thread_alive():
     return False
 
 def main():
-    for i in range(10):
+    for i in range(3):
         request_work(str(i))
 
     make_and_start_thread_pool()
