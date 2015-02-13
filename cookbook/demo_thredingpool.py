@@ -98,16 +98,8 @@ class myTread(threading.Thread):
                 lock.acquire()
                 finished = False
                 if Qin.empty() is True:
-                    # print 'Qin.empty() is ', Qin.empty()
                     set_isbusy = set([i.isbusy for i in Pool])
                     if True in set_isbusy:
-                        '''
-                        for i in Pool:
-                            print 'someone is busy'
-                            print 'i am ', self.getName()
-                            print i.getName(), 'isbusy', i.isbusy
-                            # time.sleep(10)
-                        '''
                         lock.release()
                         continue
                     else:
