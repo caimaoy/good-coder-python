@@ -21,6 +21,7 @@ Edit by caimaoy
 """
 
 import ConfigParser
+import copy
 import os
 import Queue
 import re
@@ -81,6 +82,8 @@ class ThredPoolThread(threading.Thread):
         self.pool = pool
         self.queue_lock = queue_lock
         self.log_lock = log_lock
+        print 'ThredPoolThread is init'
+
 
     def task_status(self):
         """判断任务是否结束
@@ -108,6 +111,8 @@ class ThredPoolThread(threading.Thread):
             else:
                 self.queue_lock.acquire()
                 task_st = self.task_status()
+                logger.debug('task_st is %s' % task_st)
+                time.sleep(1)
                 if task_st == 'finished':
                     self.queue_lock.release()
                     break
@@ -115,9 +120,17 @@ class ThredPoolThread(threading.Thread):
                     self.queue_lock.release()
                     continue
                 elif task_st == 'has_task':
+                    logger.debug('has_task')
                     self.isbusy = True
-                    command, item = self.task_queue.get_nowait()
+                    # command, item = self.task_queue.get_nowait()
+                    msg = self.task_queue.get_nowait()
                     self.queue_lock.release()
+
+                    if isinstance(msg, DownloadWorker):
+                        logger.debug('msg is DownloadWorker')
+                        logger.debug('msg.url is %s' % msg.url)
+                        msg.run()
+                    '''
                     if command == 'stop':
                         break
                     try:
@@ -132,6 +145,7 @@ class ThredPoolThread(threading.Thread):
                     else:
                         # TODO put the new task here
                         pass
+                    '''
                     self.isbusy = False
 
 
@@ -159,18 +173,19 @@ class TaskMassage(object):
         return self.func(list(self.arg))
 
 
-
 class ThreadPool(object):
 
     """线程池类"""
 
-    def __init__(self,thread_class, number_of_thrads_in_pool=8):
+    def __init__(self, thread_class, number_of_thrads_in_pool=8):
         """TODO: to be defined1. """
 
         self.task_queue = Queue.Queue()
         self.number = number_of_thrads_in_pool
         self.thread_class = thread_class
         self._pool = []
+        self.queue_lock = threading.Lock()
+        self.log_lock = threading.Lock()
 
     def make_and_start_thread_pool(self):
         """创建并且启动线程池线程
@@ -181,7 +196,12 @@ class ThreadPool(object):
         logger.debug('make_and_start_thread_pool')
         for i in range(self.number):
             logger.debug('starting the NO.%s thread.' % i)
-            new_thread = self.thread_class()
+            new_thread = self.thread_class(
+                queue=self.task_queue,
+                pool=self._pool,
+                queue_lock=self.queue_lock,
+                log_lock=self.log_lock
+            )
             self._pool.append(new_thread)
             new_thread.start()
 
@@ -203,7 +223,7 @@ class ThreadPool(object):
         self.task_queue.put(command, data)
 
     def get_task_queue(self):
-        return self.task_queue.get()
+        return self.task_queue
 
     def is_task_queue_empty(self):
         return self.empty()
@@ -255,11 +275,12 @@ class DownloadWorker(object):
     """
     # TODO 可能写成多线程
 
-    import Queue
     task = Queue.Queue()
     task_done = []
+    mkdir_lock = threading.Lock()
 
     def __init__(self, url, out_put_dir, reg, depth, max_depth, timeout):
+
         self.out_put_dir = out_put_dir
         self.url = url
         self.reg = reg #XXX re.compile(reg)
@@ -270,7 +291,10 @@ class DownloadWorker(object):
         self.dir_lenth = len(os.path.abspath(self.out_put_dir))
         self.__MAX_FILE_NAME_LENTH = self.__MAX_LENTH - self.dir_lenth -1
 
-        DownloadWorker.task.put((url, depth))
+        # DownloadWorker.task.put((url, depth))
+
+    def clone(self):
+        return copy.deepcopy(self)
 
     def url_to_localfile(self, url):
         """url 转换为 本地文件名
@@ -291,8 +315,10 @@ class DownloadWorker(object):
 
         """
         print 'donwloading %s ...' % url
+        logger.debug('self.out_put_dir is %s', self.out_put_dir)
         if not os.path.exists(self.out_put_dir):
-            os.mkdir(self.output_directory)
+            logger.debug('self.out_put_dir is %s', self.out_put_dir)
+            os.mkdir(self.out_put_dir)
         trsurl = self.url_to_localfile(url)
         local_file = os.path.join(self.out_put_dir, trsurl)
         if os.path.exists(local_file):
@@ -303,11 +329,17 @@ class DownloadWorker(object):
             donwload_file_to_local(url, local_file, self.timeout)
 
     def find_all_href(self):
+        '''
         url, depth = DownloadWorker.task.get()
         self.depth = depth
         DownloadWorker.task_done.append(url)
-        print 'now url is ', url
-        self.url = url
+        '''
+
+        # print 'now url is ', self.url
+        '''
+        self.url = msg.url
+        self.depth = msg.depth
+        '''
         req = urllib2.Request(url)
         try:
             ret = urllib2.urlopen(req, timeout=self.timeout)
@@ -354,19 +386,30 @@ class DownloadWorker(object):
                     ret.append(urlparse.urljoin(url, i))
 
         for i in ret:
-            if (not i in DownloadWorker.task_done and
+            if (i not in DownloadWorker.task_done and
                 self.depth + 1 < self.max_depth):
 
-                print 'depth is ', self.depth
-                print 'max_depth is ', self.max_depth
+                # print 'depth is ', self.depth
+                # print 'max_depth is ', self.max_depth
+                '''
+                logger.debug('depth is %s', self.depth)
+                logger.debug('max_depth is %s', self.max_depth)
+                logger.debug('self.out_put_dir is %s', self.out_put_dir)
+                logger.debug('now url is %s', self.url)
+                '''
 
-                # import pdb; pdb.set_trace()
-                DownloadWorker.task.put((i, depth + 1))
-                print 'put', i.encode('utf-8', 'ignore')
+                cl = self.clone()
+                cl.depth = cl.depth + 1
+                cl.url = i
+
+                # DownloadWorker.task.put((i, depth + 1))
+                logger.debug('cl is %s', cl)
+                DownloadWorker.task.put(cl)
+                logger.debug('put %s' % i.encode('utf-8', 'ignore'))
 
     def run(self):
-        while not DownloadWorker.task.empty():
-            self.find_all_href()
+        # while not DownloadWorker.task.empty():
+        self.find_all_href()
 
     def findall_reg(self, text):
         # XXX ooo
@@ -375,7 +418,7 @@ class DownloadWorker(object):
             print img
             src = img.get('src')
             print '-' * 80
-            print 'src is ', src
+            logger.debug('src is %s' % src)
             print 'self.url is ', self.url
             if src is None:
                 continue
@@ -386,10 +429,16 @@ class DownloadWorker(object):
                 src = res.group()
             if src.startswith('http:'):
                 url = src
+            elif src.startswith(r'//'):
+                # TODO XXX BUG reg replace this
+                url = src.replace(r'//', 'http://')
             else:
                 url = urlparse.urljoin(self.url, src)
             self.download_file(url)
             print '-' * 80
+
+    def __str__(self):
+        return ('self.url is %s\n, self.depth is %s\n' % (self.url, self.depth))
 
 
 if __name__ == '__main__':
@@ -412,7 +461,11 @@ if __name__ == '__main__':
     url = r'http://www.baidu.com'
     reg = r'.*\.(gif|png|jpg|bmp|html)$'
     d = DownloadWorker(url, './output', reg, 0, 4, 1)
+    pool = ThreadPool(ThredPoolThread, 4)
+    DownloadWorker.task = pool.task_queue
+    DownloadWorker.task.put(d)
+    pool.make_and_start_thread_pool()
     # d.find_all_href()
-    d.run()
+    # d.run()
     # text = u'http:\\//tieba.baidu.com/tb/cms/game_test/混沌战域-280-180_1423019686.jpg'
     # print trans_url(text)
