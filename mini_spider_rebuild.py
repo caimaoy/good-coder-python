@@ -129,6 +129,7 @@ class ThredPoolThread(threading.Thread):
                     if isinstance(msg, DownloadWorker):
                         logger.debug('msg is DownloadWorker')
                         logger.debug('msg.url is %s' % msg.url)
+                        logger.debug('the id of msg is %s' % id(msg))
                         msg.run()
                     '''
                     if command == 'stop':
@@ -276,7 +277,7 @@ class DownloadWorker(object):
     # TODO 可能写成多线程
 
     task = Queue.Queue()
-    task_done = []
+    task_done = set()
     mkdir_lock = threading.Lock()
 
     def __init__(self, url, out_put_dir, reg, depth, max_depth, timeout):
@@ -332,15 +333,15 @@ class DownloadWorker(object):
         '''
         url, depth = DownloadWorker.task.get()
         self.depth = depth
-        DownloadWorker.task_done.append(url)
         '''
+        DownloadWorker.task_done.add(self.url)
 
         # print 'now url is ', self.url
         '''
         self.url = msg.url
         self.depth = msg.depth
         '''
-        req = urllib2.Request(url)
+        req = urllib2.Request(self.url)
         try:
             ret = urllib2.urlopen(req, timeout=self.timeout)
         except urllib2.URLError as e:
@@ -386,7 +387,8 @@ class DownloadWorker(object):
                     ret.append(urlparse.urljoin(url, i))
 
         for i in ret:
-            if (i not in DownloadWorker.task_done and
+            logger.debug('now url is %s' % i)
+            if (not i in DownloadWorker.task_done and
                 self.depth + 1 < self.max_depth):
 
                 # print 'depth is ', self.depth
@@ -398,13 +400,19 @@ class DownloadWorker(object):
                 logger.debug('now url is %s', self.url)
                 '''
 
+                logger.debug('task_done is %s' % DownloadWorker.task_done)
+
                 cl = self.clone()
                 cl.depth = cl.depth + 1
                 cl.url = i
 
+                logger.debug('id of self is %s', id(self))
+                logger.debug('id of clone is %s', id(cl))
+
                 # DownloadWorker.task.put((i, depth + 1))
-                logger.debug('cl is %s', cl)
+                logger.debug('clone is %s', cl)
                 DownloadWorker.task.put(cl)
+                logger.debug('size is: %s' % DownloadWorker.task.qsize())
                 logger.debug('put %s' % i.encode('utf-8', 'ignore'))
 
     def run(self):
