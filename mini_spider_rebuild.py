@@ -75,13 +75,13 @@ def donwload_file_to_local(url, filename, timeout=1):
 class ThredPoolThread(threading.Thread):
     """线程池中的线程类"""
 
-    def __init__(self, queue, pool, queue_lock, log_lock):
+    def __init__(self, queue, pool, queue_lock):#, log_lock):
         super(ThredPoolThread, self).__init__()
         self.task_queue = queue
         self.isbusy = False
         self.pool = pool
         self.queue_lock = queue_lock
-        self.log_lock = log_lock
+        # self.log_lock = log_lock
         print 'ThredPoolThread is init'
 
 
@@ -186,7 +186,7 @@ class ThreadPool(object):
         self.thread_class = thread_class
         self._pool = []
         self.queue_lock = threading.Lock()
-        self.log_lock = threading.Lock()
+        # self.log_lock = threading.Lock()
 
     def make_and_start_thread_pool(self):
         """创建并且启动线程池线程
@@ -200,8 +200,8 @@ class ThreadPool(object):
             new_thread = self.thread_class(
                 queue=self.task_queue,
                 pool=self._pool,
-                queue_lock=self.queue_lock,
-                log_lock=self.log_lock
+                queue_lock=self.queue_lock
+                # log_lock=self.log_lock
             )
             self._pool.append(new_thread)
             new_thread.start()
@@ -315,7 +315,7 @@ class DownloadWorker(object):
         :returns: TODO
 
         """
-        print 'donwloading %s ...' % url
+        logger.debug('donwloading %s ...' % url)
         logger.debug('self.out_put_dir is %s', self.out_put_dir)
         if not os.path.exists(self.out_put_dir):
             logger.debug('self.out_put_dir is %s', self.out_put_dir)
@@ -345,6 +345,7 @@ class DownloadWorker(object):
         try:
             ret = urllib2.urlopen(req, timeout=self.timeout)
         except urllib2.URLError as e:
+            logger.error('%s has error' % self.url)
             if hasattr(e, 'code'):
                 logger.error('The server couldn\'t fulfill the request.')
                 logger.error('Error code: %s' % e.code)
@@ -384,7 +385,11 @@ class DownloadWorker(object):
                 if re.match(r'http:', i):
                     ret.append(i)
                 else:
-                    ret.append(urlparse.urljoin(url, i))
+                    logger.debug('url is %s' % url)
+                    logger.debug('i is %s' % i)
+                    urljoined = urlparse.urljoin(self.url, i)
+                    ret.append(urljoined)
+                    logger.debug('urljoined is %s' % urljoined)
 
         for i in ret:
             logger.debug('now url is %s' % i)
@@ -393,14 +398,12 @@ class DownloadWorker(object):
 
                 # print 'depth is ', self.depth
                 # print 'max_depth is ', self.max_depth
-                '''
                 logger.debug('depth is %s', self.depth)
                 logger.debug('max_depth is %s', self.max_depth)
                 logger.debug('self.out_put_dir is %s', self.out_put_dir)
                 logger.debug('now url is %s', self.url)
-                '''
 
-                logger.debug('task_done is %s' % DownloadWorker.task_done)
+                # logger.debug('task_done is %s' % DownloadWorker.task_done)
 
                 cl = self.clone()
                 cl.depth = cl.depth + 1
@@ -426,24 +429,29 @@ class DownloadWorker(object):
             print img
             src = img.get('src')
             print '-' * 80
+            '''
             logger.debug('src is %s' % src)
-            print 'self.url is ', self.url
+            logger.debug('self.url is %s' % self.url)
+            '''
             if src is None:
                 continue
+            src = src.replace('\r\n', '') # replace \r\n
             # res = self.reg.match(src)
             res = re.match(self.reg, src)
-            print 'self.reg is ', self.reg
+            # logger.debug('self.reg is %s' % self.reg)
+            # logger.debug('res is %s' % res)
             if res:
-                src = res.group()
-            if src.startswith('http:'):
-                url = src
-            elif src.startswith(r'//'):
-                # TODO XXX BUG reg replace this
-                url = src.replace(r'//', 'http://')
-            else:
-                url = urlparse.urljoin(self.url, src)
-            self.download_file(url)
-            print '-' * 80
+                src = res.group()# .replace('\r\n', '')
+
+                if src.startswith('http:'):
+                    url = src
+                elif src.startswith(r'//'):
+                    # TODO XXX BUG reg replace this
+                    url = res.replace(r'//', 'http://')
+                else:
+                    url = urlparse.urljoin(self.url, src)
+                self.download_file(url)
+                print '-' * 80
 
     def __str__(self):
         return ('self.url is %s\n, self.depth is %s\n' % (self.url, self.depth))
@@ -465,11 +473,12 @@ if __name__ == '__main__':
     # filename = 'test.gif'
     # donwload_file(url, filename)
     # s.download_file(url)
-    # url = r'http://pycm.baidu.com:8081/'
-    url = r'http://www.baidu.com'
+    url = r'http://pycm.baidu.com:8081/'
+    # url = r'http://www.baidu.com'
+    # url = r'http://caixin.com'
     reg = r'.*\.(gif|png|jpg|bmp|html)$'
-    d = DownloadWorker(url, './output', reg, 0, 4, 1)
-    pool = ThreadPool(ThredPoolThread, 4)
+    d = DownloadWorker(url, './output', reg, 0, 8, 1)
+    pool = ThreadPool(ThredPoolThread, 8)
     DownloadWorker.task = pool.task_queue
     DownloadWorker.task.put(d)
     pool.make_and_start_thread_pool()
