@@ -151,7 +151,7 @@ class DownloadWorker(object):
     def __init__(self, url, out_put_dir, reg, depth, max_depth, timeout):
         self.out_put_dir = out_put_dir
         self.url = url
-        self.reg = re.compile(reg)
+        self.reg = reg #XXX re.compile(reg)
         self.max_depth = max_depth
         self.depth = depth
         self.timeout = timeout
@@ -268,7 +268,9 @@ class DownloadWorker(object):
             print 'self.url is ', self.url
             if src is None:
                 continue
-            res = self.reg.match(src)
+            # res = self.reg.match(src)
+            res = re.match(self.reg, src)
+            print 'self.reg is ', self.reg
             if res:
                 src = res.group()
             if src.startswith('http:'):
