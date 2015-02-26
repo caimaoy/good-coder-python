@@ -447,7 +447,7 @@ class DownloadWorker(object):
                     url = src
                 elif src.startswith(r'//'):
                     # TODO XXX BUG reg replace this
-                    url = res.replace(r'//', 'http://')
+                    url = src.replace(r'//', 'http://')
                 else:
                     url = urlparse.urljoin(self.url, src)
                 self.download_file(url)
@@ -473,11 +473,11 @@ if __name__ == '__main__':
     # filename = 'test.gif'
     # donwload_file(url, filename)
     # s.download_file(url)
-    url = r'http://pycm.baidu.com:8081/'
-    # url = r'http://www.baidu.com'
+    # url = r'http://pycm.baidu.com:8081/'
+    url = r'http://www.baidu.com'
     # url = r'http://caixin.com'
     reg = r'.*\.(gif|png|jpg|bmp|html)$'
-    d = DownloadWorker(url, './output', reg, 0, 8, 1)
+    d = DownloadWorker(url, './output', reg, 0, 4, 1)
     pool = ThreadPool(ThredPoolThread, 8)
     DownloadWorker.task = pool.task_queue
     DownloadWorker.task.put(d)
