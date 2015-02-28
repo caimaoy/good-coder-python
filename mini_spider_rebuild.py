@@ -25,7 +25,6 @@ import copy
 import os
 import Queue
 import re
-import string
 import threading
 import time
 import urlparse
@@ -48,7 +47,7 @@ print config.get('spider', 'thread_count') # -> "Python is fun!"
 
 def trans_url(s):
     # TODO rebuild
-    reg = r'[/|\\|:|?|<|>|"|\|]'
+    reg = r'[/|\\|:|?|<|>|"|\*|\|]'
     s = re.sub(reg, '_', s)
     return s
 
