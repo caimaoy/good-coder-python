@@ -25,7 +25,6 @@ import copy
 import os
 import Queue
 import re
-import string
 import threading
 import time
 import urlparse
@@ -48,7 +47,7 @@ print config.get('spider', 'thread_count') # -> "Python is fun!"
 
 def trans_url(s):
     # TODO rebuild
-    reg = r'[/|\\|:|?|<|>|"|\|]'
+    reg = r'[/|\\|:|?|<|>|"|\*|\|]'
     s = re.sub(reg, '_', s)
     return s
 
@@ -81,7 +80,6 @@ class ThredPoolThread(threading.Thread):
         self.isbusy = False
         self.pool = pool
         self.queue_lock = queue_lock
-        # self.log_lock = log_lock
         print 'ThredPoolThread is init'
 
 
@@ -111,7 +109,7 @@ class ThredPoolThread(threading.Thread):
             else:
                 self.queue_lock.acquire()
                 task_st = self.task_status()
-                logger.debug('task_st is %s' % task_st)
+                logger.debug('task_status is %s' % task_st)
                 time.sleep(1)
                 if task_st == 'finished':
                     self.queue_lock.release()
@@ -186,7 +184,6 @@ class ThreadPool(object):
         self.thread_class = thread_class
         self._pool = []
         self.queue_lock = threading.Lock()
-        # self.log_lock = threading.Lock()
 
     def make_and_start_thread_pool(self):
         """创建并且启动线程池线程
@@ -201,7 +198,6 @@ class ThreadPool(object):
                 queue=self.task_queue,
                 pool=self._pool,
                 queue_lock=self.queue_lock
-                # log_lock=self.log_lock
             )
             self._pool.append(new_thread)
             new_thread.start()
@@ -229,6 +225,10 @@ class ThreadPool(object):
     def is_task_queue_empty(self):
         return self.empty()
 
+    def wait_all(self):
+        for i in self._pool:
+            i.join()
+
 
 class SpiderManager(object):
 
@@ -248,10 +248,11 @@ class SpiderManager(object):
         self.crawl_timeout = 1
         self.target_url = r'.*\.(gif|png|jpg|bmp)$'
         self.thread_count = 8
+        self.pool = ThreadPool(ThredPoolThread, 8)
+        DownloadWorker.task = self.pool.task_queue
         self._init()
 
     def _init(self):
-        # import pdb; pdb.set_trace()
         config = ConfigParser.ConfigParser()
         config.read(self._config_file)
 
@@ -264,12 +265,49 @@ class SpiderManager(object):
             'target_url',
             'thread_count'
         ]
+
         try:
             for i in v:
                 self.__setattr__(i, config.get('spider', i))
         except Exception as e:
             logger.error(e)
+            raise AttributeError('sth error with config_file')
 
+        self.read_url_file()
+
+    def read_url_file(self):
+        try:
+            url_f = open(self.url_list_file)
+            for u in url_f:
+                # d = DownloadWorker(url, './output', reg, 0, 4, 1)
+                # TODO add crawl_interval
+                worker = DownloadWorker(
+                    u,
+                    self.output_directory,
+                    self.target_url,
+                    0,
+                    int(self.max_depth),
+                    int(self.crawl_timeout)
+                )
+                # TODO function
+                # DownloadWorker.task.put(worker)
+                DownloadWorker.add_queue(worker)
+        except Exception as e:
+            logger.error(e)
+            raise IOError('sth error with url_list_file')
+
+
+    def run(self):
+        '''
+        reg = r'.*\.(gif|png|jpg|bmp|html)$'
+        d = DownloadWorker(url, './output', reg, 0, 4, 1)
+        pool = ThreadPool(ThredPoolThread, 8)
+        DownloadWorker.task = pool.task_queue
+        DownloadWorker.task.put(d)
+        '''
+        self.pool.make_and_start_thread_pool()
+        self.pool.wait_all()
+        print 'youyadetuichu'
 
 class DownloadWorker(object):
     """下载类
@@ -280,7 +318,20 @@ class DownloadWorker(object):
     task_done = set()
     mkdir_lock = threading.Lock()
 
+
+    @staticmethod
+    def add_queue(t):
+        """add msg to DownloadWorker.task which is a queue
+
+        :t: DownloadWorker inistance
+        :returns: None
+
+        """
+        DownloadWorker.task.put(t)
+
     def __init__(self, url, out_put_dir, reg, depth, max_depth, timeout):
+
+        # TODO add crawl_interval
 
         self.out_put_dir = out_put_dir
         self.url = url
@@ -385,7 +436,7 @@ class DownloadWorker(object):
                 if re.match(r'http:', i):
                     ret.append(i)
                 else:
-                    logger.debug('url is %s' % url)
+                    logger.debug('url is %s' % self.url)
                     logger.debug('i is %s' % i)
                     urljoined = urlparse.urljoin(self.url, i)
                     ret.append(urljoined)
@@ -467,7 +518,8 @@ if __name__ == '__main__':
     '''
     config_file = r'D:\caimaoy\good-coder-python\spider.conf'
     s = SpiderManager(config_file)
-    url = r'http://www.baidu.com/img/baidu_jgylogo3.gif?v=22596777.gif'
+    s.run()
+    # url = r'http://www.baidu.com/img/baidu_jgylogo3.gif?v=22596777.gif'
     # wrong_url = r'http://wwww.baidu.com/img/baidu_jgylogo3.gif?v=22596777.gif'
     # url = wrong_url
     # filename = 'test.gif'
@@ -476,6 +528,7 @@ if __name__ == '__main__':
     # url = r'http://pycm.baidu.com:8081/'
     url = r'http://www.baidu.com'
     # url = r'http://caixin.com'
+    '''
     reg = r'.*\.(gif|png|jpg|bmp|html)$'
     d = DownloadWorker(url, './output', reg, 0, 4, 1)
     pool = ThreadPool(ThredPoolThread, 8)
@@ -486,3 +539,5 @@ if __name__ == '__main__':
     # d.run()
     # text = u'http:\\//tieba.baidu.com/tb/cms/game_test/混沌战域-280-180_1423019686.jpg'
     # print trans_url(text)
+    '''
+

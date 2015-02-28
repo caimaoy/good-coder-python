@@ -24,7 +24,7 @@ class mytest(unittest.TestCase):
         pass
 
     def test_trans_url(self):
-        inpt = r'/\:?<>"\\'
+        inpt = r'/\:?<>"\*'
         outpt = r'_________'
         self.assertEqual(mini.trans_url(inpt), outpt, 'failed')
 
