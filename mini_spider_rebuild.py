@@ -26,7 +26,7 @@ import os
 import Queue
 import re
 import threading
-import time
+from time import sleep
 import urlparse
 import urllib2
 
@@ -71,17 +71,17 @@ def donwload_file_to_local(url, filename, timeout=1):
         with open(filename, 'wb') as code:
             code.write(data)
 
+
 class ThredPoolThread(threading.Thread):
     """线程池中的线程类"""
 
-    def __init__(self, queue, pool, queue_lock):#, log_lock):
+    def __init__(self, queue, pool, queue_lock):
         super(ThredPoolThread, self).__init__()
         self.task_queue = queue
         self.isbusy = False
         self.pool = pool
         self.queue_lock = queue_lock
         print 'ThredPoolThread is init'
-
 
     def task_status(self):
         """判断任务是否结束
@@ -109,8 +109,7 @@ class ThredPoolThread(threading.Thread):
             else:
                 self.queue_lock.acquire()
                 task_st = self.task_status()
-                logger.debug('task_status is %s' % task_st)
-                time.sleep(1)
+                # logger.debug('task_status is %s' % task_st)
                 if task_st == 'finished':
                     self.queue_lock.release()
                     break
@@ -248,6 +247,7 @@ class SpiderManager(object):
         self.crawl_timeout = 1
         self.target_url = r'.*\.(gif|png|jpg|bmp)$'
         self.thread_count = 8
+        # TODO threading number
         self.pool = ThreadPool(ThredPoolThread, 8)
         DownloadWorker.task = self.pool.task_queue
         self._init()
@@ -287,7 +287,8 @@ class SpiderManager(object):
                     self.target_url,
                     0,
                     int(self.max_depth),
-                    int(self.crawl_timeout)
+                    int(self.crawl_timeout),
+                    int(self.crawl_interval)
                 )
                 # TODO function
                 # DownloadWorker.task.put(worker)
@@ -296,10 +297,8 @@ class SpiderManager(object):
             logger.error(e)
             raise IOError('sth error with url_list_file')
 
-
     def run(self):
         '''
-        reg = r'.*\.(gif|png|jpg|bmp|html)$'
         d = DownloadWorker(url, './output', reg, 0, 4, 1)
         pool = ThreadPool(ThredPoolThread, 8)
         DownloadWorker.task = pool.task_queue
@@ -309,15 +308,14 @@ class SpiderManager(object):
         self.pool.wait_all()
         print 'youyadetuichu'
 
+
 class DownloadWorker(object):
     """下载类
     """
-    # TODO 可能写成多线程
 
     task = Queue.Queue()
     task_done = set()
     mkdir_lock = threading.Lock()
-
 
     @staticmethod
     def add_queue(t):
@@ -329,23 +327,45 @@ class DownloadWorker(object):
         """
         DownloadWorker.task.put(t)
 
-    def __init__(self, url, out_put_dir, reg, depth, max_depth, timeout):
+    def __init__(
+        self,
+        url,
+        out_put_dir,
+        reg,
+        depth,
+        max_depth,
+        timeout,
+        interval
+    ):
+        """下载类初始化
 
-        # TODO add crawl_interval
+        :url: 现在正在爬取的url
+        :out_put_dir: 爬取文件输出文件夹
+        :reg: 爬取的正则表达式
+        :depth: 现在所处的爬取深度
+        :max_depth: 需要爬取的最大深度
+        :timeout: 超时时间
+        :interval: 间隔时间
+
+        """
 
         self.out_put_dir = out_put_dir
         self.url = url
-        self.reg = reg #XXX re.compile(reg)
+        self.reg = reg  # 使用re.compile对象不能clone
         self.max_depth = max_depth
         self.depth = depth
         self.timeout = timeout
         self.__MAX_LENTH = 200
         self.dir_lenth = len(os.path.abspath(self.out_put_dir))
-        self.__MAX_FILE_NAME_LENTH = self.__MAX_LENTH - self.dir_lenth -1
-
-        # DownloadWorker.task.put((url, depth))
+        self.__MAX_FILE_NAME_LENTH = self.__MAX_LENTH - self.dir_lenth - 1
+        self.interval = interval
 
     def clone(self):
+        """克隆方法实现prototype
+
+        :returns: 实例的深拷贝
+
+        """
         return copy.deepcopy(self)
 
     def url_to_localfile(self, url):
@@ -363,7 +383,7 @@ class DownloadWorker(object):
         """下载文件到制定目录
 
         :url: 需要下载的文件url
-        :returns: TODO
+        :returns: None
 
         """
         logger.debug('donwloading %s ...' % url)
@@ -380,18 +400,13 @@ class DownloadWorker(object):
             logger.debug('len(local_file) is %s' % str(len(local_file)))
             donwload_file_to_local(url, local_file, self.timeout)
 
-    def find_all_href(self):
-        '''
-        url, depth = DownloadWorker.task.get()
-        self.depth = depth
-        '''
-        DownloadWorker.task_done.add(self.url)
+    def get_url_text(self):
+        """获取url的内容
+        函数内捕捉异常
 
-        # print 'now url is ', self.url
-        '''
-        self.url = msg.url
-        self.depth = msg.depth
-        '''
+        :returns: url的内容，错误返回None
+
+        """
         req = urllib2.Request(self.url)
         try:
             ret = urllib2.urlopen(req, timeout=self.timeout)
@@ -407,24 +422,38 @@ class DownloadWorker(object):
                 logger.error('No exception was raised.')
             return None
         except Exception as e:
+            logger.error('%s has error' % self.url)
             logger.error('Error: %s', e)
             return None
 
+        text = ''
         try:
             text = ret.read()
         except Exception as e:
-            # TODO 可能或有timeout 异常
             logger.error('Error: %s', e)
             return None
+        return text
+
+    def find_all_href(self):
+        """查询所有的超链接，下载或者加入队列继续爬
+
+        :returns: None
+
+        """
+
+        DownloadWorker.task_done.add(self.url)
+
+        text = self.get_url_text()
+        if text is None:
+            return
+
         soup = bs(text)
         hrefs = []
 
         self.findall_reg(text)
 
         for link in soup('a'):
-            # print link
             href = link.get('href')
-            # print href
             hrefs.append(href)
             '''
             if self.reg.match(href):
@@ -444,18 +473,15 @@ class DownloadWorker(object):
 
         for i in ret:
             logger.debug('now url is %s' % i)
-            if (not i in DownloadWorker.task_done and
-                self.depth + 1 < self.max_depth):
-
-                # print 'depth is ', self.depth
-                # print 'max_depth is ', self.max_depth
+            if (i not in DownloadWorker.task_done and
+                    self.depth + 1 < self.max_depth):
+                '''
                 logger.debug('depth is %s', self.depth)
                 logger.debug('max_depth is %s', self.max_depth)
                 logger.debug('self.out_put_dir is %s', self.out_put_dir)
                 logger.debug('now url is %s', self.url)
-
+                '''
                 # logger.debug('task_done is %s' % DownloadWorker.task_done)
-
                 cl = self.clone()
                 cl.depth = cl.depth + 1
                 cl.url = i
@@ -471,41 +497,52 @@ class DownloadWorker(object):
 
     def run(self):
         # while not DownloadWorker.task.empty():
+        # interval
         self.find_all_href()
+        sleep(self.interval)
 
     def findall_reg(self, text):
-        # XXX ooo
+        """下载html中的reg文件
+
+        :text: html 内容，考虑传bs对象，为了复用传递text
+        :returns: None
+
+        """
         soup = bs(text)
         for img in soup('img'):
-            print img
             src = img.get('src')
-            print '-' * 80
-            '''
-            logger.debug('src is %s' % src)
-            logger.debug('self.url is %s' % self.url)
-            '''
+
             if src is None:
                 continue
-            src = src.replace('\r\n', '') # replace \r\n
-            # res = self.reg.match(src)
-            res = re.match(self.reg, src)
-            # logger.debug('self.reg is %s' % self.reg)
-            # logger.debug('res is %s' % res)
-            if res:
-                src = res.group()# .replace('\r\n', '')
 
-                if src.startswith('http:'):
-                    url = src
-                elif src.startswith(r'//'):
-                    # TODO XXX BUG reg replace this
-                    url = src.replace(r'//', 'http://')
-                else:
-                    url = urlparse.urljoin(self.url, src)
+            # replace \r\n
+            src = src.replace('\r\n', '')
+            res = re.match(self.reg, src)
+            if res:
+                src = res.group()
+                url = self.create_download_url(src)
                 self.download_file(url)
-                print '-' * 80
+
+    def create_download_url(self, src):
+        """生成现在的url地址
+
+        :src: 原文URL中提取出的链接
+        :returns: 根据判断绝对地址和相对地址给出最后的下载地址
+
+        """
+        url = ''
+        if src.startswith('http:'):
+            url = src
+        elif src.startswith(r'//'):
+            # TODO XXX BUG reg replace this
+            url = src.replace(r'//', 'http://')
+        else:
+            url = urlparse.urljoin(self.url, src)
+        return url
 
     def __str__(self):
-        return ('self.url is %s\n, self.depth is %s\n' % (self.url, self.depth))
+        return ('self.url is %s\n, self.depth is %s\n' %
+                (self.url, self.depth))
 
 
 if __name__ == '__main__':
@@ -520,7 +557,7 @@ if __name__ == '__main__':
     s = SpiderManager(config_file)
     s.run()
     # url = r'http://www.baidu.com/img/baidu_jgylogo3.gif?v=22596777.gif'
-    # wrong_url = r'http://wwww.baidu.com/img/baidu_jgylogo3.gif?v=22596777.gif'
+    # wrong_url = r'http://wwww.baidu.com/img/baidu_jgylogo3.gi=22596777.gif'
     # url = wrong_url
     # filename = 'test.gif'
     # donwload_file(url, filename)
@@ -537,7 +574,6 @@ if __name__ == '__main__':
     pool.make_and_start_thread_pool()
     # d.find_all_href()
     # d.run()
-    # text = u'http:\\//tieba.baidu.com/tb/cms/game_test/混沌战域-280-180_1423019686.jpg'
+    # text = u'http:\\//tiu.com/te_test/混沌战域-280-180_1423019686.jpg'
     # print trans_url(text)
     '''
-
