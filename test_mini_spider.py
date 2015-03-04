@@ -12,8 +12,9 @@ __author__ = 'caimaoy'
 
 import unittest
 import mini_spider_rebuild as mini
+import os
 
-class mytest(unittest.TestCase):
+class FuncTest(unittest.TestCase):
 
     # 初始化工作
     def setUp(self):
@@ -27,6 +28,30 @@ class mytest(unittest.TestCase):
         inpt = r'/\:?<>"\*'
         outpt = r'_________'
         self.assertEqual(mini.trans_url(inpt), outpt, 'failed')
+        self.assertEqual(mini.trans_url('1.+'), '1.+', 'failed')
+
+
+class DownloadTest(unittest.TestCase):
+
+    file_dir = os.path.dirname(os.path.abspath(__file__))
+    fm = ''.join(['file:///', os.path.join(file_dir, 'test_download_file')])
+    to = os.path.join(file_dir, 'test_download_file_to')
+
+    # 初始化工作
+    def setUp(self):
+        pass
+
+    # 退出清理工作
+    def tearDown(self):
+        os.remove(self.to)
+
+    def test_download_file(self):
+        mini.download_file_to_local(self.fm, self.to)
+        self.assertTrue(os.path.exists(self.to))
+        self.assertRaises(mini.download_file_to_local('wrong_path', 'no'))
+        mini.download_file_to_local('wrong_path', 'no')
+
+
 
 if __name__ == '__main__':
     unittest.main()
