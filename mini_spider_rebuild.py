@@ -26,23 +26,16 @@ import os
 import Queue
 import re
 import threading
-from time import sleep
 import urlparse
 import urllib2
 
+from time import sleep
 from docopt2 import docopt
 from bs4 import BeautifulSoup as bs
+
 import log
 
 logger = log.init_log(r'./log/mini_spider.log')
-
-"""
-config = ConfigParser.ConfigParser()
-config.read('spider.conf')
-
-print config.get('spider', 'url_list_file') # -> "Python is fun!"
-print config.get('spider', 'thread_count') # -> "Python is fun!"
-"""
 
 
 def trans_url(s):
@@ -52,7 +45,7 @@ def trans_url(s):
     return s
 
 
-def donwload_file_to_local(url, filename, timeout=1):
+def download_file_to_local(url, filename, timeout=1):
     """download file from url
 
     :url: just url download file from url
@@ -76,15 +69,23 @@ class ThredPoolThread(threading.Thread):
     """线程池中的线程类"""
 
     def __init__(self, queue, pool, queue_lock):
+        """初始化线程池
+
+        :queue 消息队列
+        :pool 线程池
+        :queue_lock 消息队列锁
+
+        """
         super(ThredPoolThread, self).__init__()
         self.task_queue = queue
         self.isbusy = False
         self.pool = pool
         self.queue_lock = queue_lock
-        print 'ThredPoolThread is init'
 
     def task_status(self):
         """判断任务是否结束
+
+        结束条件为队列为空，而且线程都处于非工作状态
 
         :return 任务是否结束
 
@@ -101,74 +102,32 @@ class ThredPoolThread(threading.Thread):
         return ret
 
     def run(self):
-        # XXX
+        """多线程调用函数"""
+
         while True:
-            if self.isbusy is True:
-                logger.debug('I am busy')
-                pass
-            else:
-                self.queue_lock.acquire()
-                task_st = self.task_status()
-                # logger.debug('task_status is %s' % task_st)
-                if task_st == 'finished':
-                    self.queue_lock.release()
-                    break
-                elif task_st == 'continue':
-                    self.queue_lock.release()
-                    continue
-                elif task_st == 'has_task':
-                    logger.debug('has_task')
-                    self.isbusy = True
-                    # command, item = self.task_queue.get_nowait()
-                    msg = self.task_queue.get_nowait()
-                    self.queue_lock.release()
+            self.queue_lock.acquire()
+            task_st = self.task_status()
+            if task_st == 'finished':
+                self.queue_lock.release()
+                break
+            elif task_st == 'continue':
+                self.queue_lock.release()
+                continue
+            elif task_st == 'has_task':
+                self.isbusy = True
+                msg = self.task_queue.get_nowait()
+                self.queue_lock.release()
 
-                    if isinstance(msg, DownloadWorker):
-                        logger.debug('msg is DownloadWorker')
-                        logger.debug('msg.url is %s' % msg.url)
-                        logger.debug('the id of msg is %s' % id(msg))
-                        msg.run()
+                try:
+                    msg.run()
+                except Exception as e:
+                    logger.error(e)
                     '''
-                    if command == 'stop':
-                        break
-                    try:
-                        time.sleep(1)
-                        if command == 'process':
-                            # TODO dotask
-                            pass
-                        else:
-                            raise ValueError, 'Unknown command %r' % command
-                    except Exception as e:
-                        logger.error(e)
-                    else:
-                        # TODO put the new task here
-                        pass
+                    logger.debug('msg is DownloadWorker')
+                    logger.debug('msg.url is %s' % msg.url)
+                    logger.debug('the id of msg is %s' % id(msg))
                     '''
-                    self.isbusy = False
-
-
-class TaskMassage(object):
-
-    """消息队列中的消息类"""
-
-    def __init__(self, func, *arg):
-        """初始化消息队列
-
-        :func: 调用的函数签名
-        :*arg: 函数的参数
-        :returns: None
-
-        """
-        self.func = func
-        self.arg = arg
-
-    def run(self):
-        """执行消息队列行为
-
-        :returns: self.func的执行结果
-
-        """
-        return self.func(list(self.arg))
+                self.isbusy = False
 
 
 class ThreadPool(object):
@@ -176,7 +135,11 @@ class ThreadPool(object):
     """线程池类"""
 
     def __init__(self, thread_class, number_of_thrads_in_pool=8):
-        """TODO: to be defined1. """
+        """线程池初始化
+
+        :thread_class: 线程池中的线程类
+        :number_of_thrads_in_pool: 线程个数
+        """
 
         self.task_queue = Queue.Queue()
         self.number = number_of_thrads_in_pool
@@ -190,7 +153,6 @@ class ThreadPool(object):
         :returns: TODO
 
         """
-        logger.debug('make_and_start_thread_pool')
         for i in range(self.number):
             logger.debug('starting the NO.%s thread.' % i)
             new_thread = self.thread_class(
@@ -201,6 +163,7 @@ class ThreadPool(object):
             self._pool.append(new_thread)
             new_thread.start()
 
+    '''
     def stop_and_free_thread_pool(self):
         """暂停并释放所有线程池中线程
 
@@ -223,6 +186,7 @@ class ThreadPool(object):
 
     def is_task_queue_empty(self):
         return self.empty()
+    '''
 
     def wait_all(self):
         for i in self._pool:
@@ -247,7 +211,6 @@ class SpiderManager(object):
         self.crawl_timeout = 1
         self.target_url = r'.*\.(gif|png|jpg|bmp)$'
         self.thread_count = 8
-        # TODO threading number
         self.pool = ThreadPool(ThredPoolThread, 8)
         DownloadWorker.task = self.pool.task_queue
         self._init()
@@ -279,8 +242,6 @@ class SpiderManager(object):
         try:
             url_f = open(self.url_list_file)
             for u in url_f:
-                # d = DownloadWorker(url, './output', reg, 0, 4, 1)
-                # TODO add crawl_interval
                 worker = DownloadWorker(
                     u,
                     self.output_directory,
@@ -290,23 +251,15 @@ class SpiderManager(object):
                     int(self.crawl_timeout),
                     int(self.crawl_interval)
                 )
-                # TODO function
-                # DownloadWorker.task.put(worker)
                 DownloadWorker.add_queue(worker)
         except Exception as e:
             logger.error(e)
             raise IOError('sth error with url_list_file')
 
     def run(self):
-        '''
-        d = DownloadWorker(url, './output', reg, 0, 4, 1)
-        pool = ThreadPool(ThredPoolThread, 8)
-        DownloadWorker.task = pool.task_queue
-        DownloadWorker.task.put(d)
-        '''
         self.pool.make_and_start_thread_pool()
         self.pool.wait_all()
-        print 'youyadetuichu'
+        logger.debug(u'任务完成，优雅的退出了...')
 
 
 class DownloadWorker(object):
@@ -387,7 +340,7 @@ class DownloadWorker(object):
 
         """
         logger.debug('donwloading %s ...' % url)
-        logger.debug('self.out_put_dir is %s', self.out_put_dir)
+        # logger.debug('self.out_put_dir is %s', self.out_put_dir)
         if not os.path.exists(self.out_put_dir):
             logger.debug('self.out_put_dir is %s', self.out_put_dir)
             os.mkdir(self.out_put_dir)
@@ -396,9 +349,9 @@ class DownloadWorker(object):
         if os.path.exists(local_file):
             logger.debug('%s exists' % local_file)
         else:
-            logger.debug('local_file is %s' % local_file)
-            logger.debug('len(local_file) is %s' % str(len(local_file)))
-            donwload_file_to_local(url, local_file, self.timeout)
+            # logger.debug('local_file is %s' % local_file)
+            # logger.debug('len(local_file) is %s' % str(len(local_file)))
+            download_file_to_local(url, local_file, self.timeout)
 
     def get_url_text(self):
         """获取url的内容
@@ -442,6 +395,7 @@ class DownloadWorker(object):
         """
 
         DownloadWorker.task_done.add(self.url)
+        logger.debug('%s is being crawled now...' % self.url)
 
         text = self.get_url_text()
         if text is None:
@@ -455,24 +409,23 @@ class DownloadWorker(object):
         for link in soup('a'):
             href = link.get('href')
             hrefs.append(href)
-            '''
-            if self.reg.match(href):
-                print href, 'match'
-            '''
         ret = []
+
+        # html_reg = re.compile(r'http.*html')
+        html_reg = re.compile(r'http')
+
         for i in hrefs:
-            if i is not None:
-                if re.match(r'http:', i):
+            if i is not None and i.endswith('html'):
+                if re.match(html_reg, i):
                     ret.append(i)
                 else:
-                    logger.debug('url is %s' % self.url)
-                    logger.debug('i is %s' % i)
                     urljoined = urlparse.urljoin(self.url, i)
                     ret.append(urljoined)
-                    logger.debug('urljoined is %s' % urljoined)
+                    # logger.debug('url is %s' % self.url)
+                    # logger.debug('i is %s' % i)
+                    # logger.debug('urljoined is %s' % urljoined)
 
         for i in ret:
-            logger.debug('now url is %s' % i)
             if (i not in DownloadWorker.task_done and
                     self.depth + 1 < self.max_depth):
                 '''
@@ -480,23 +433,22 @@ class DownloadWorker(object):
                 logger.debug('max_depth is %s', self.max_depth)
                 logger.debug('self.out_put_dir is %s', self.out_put_dir)
                 logger.debug('now url is %s', self.url)
+                logger.debug('task_done is %s' % DownloadWorker.task_done)
                 '''
-                # logger.debug('task_done is %s' % DownloadWorker.task_done)
+                # 克隆下载配置，修改depth 和 url
                 cl = self.clone()
                 cl.depth = cl.depth + 1
                 cl.url = i
-
-                logger.debug('id of self is %s', id(self))
-                logger.debug('id of clone is %s', id(cl))
-
-                # DownloadWorker.task.put((i, depth + 1))
-                logger.debug('clone is %s', cl)
                 DownloadWorker.task.put(cl)
-                logger.debug('size is: %s' % DownloadWorker.task.qsize())
-                logger.debug('put %s' % i.encode('utf-8', 'ignore'))
+
+                # logger.debug('clone is %s', cl)
+                # logger.debug('id of self is %s', id(self))
+                # logger.debug('id of clone is %s', id(cl))
+                # DownloadWorker.task.put((i, depth + 1))
+                # logger.debug('size is: %s' % DownloadWorker.task.qsize())
+                # logger.debug('put %s' % i.encode('utf-8', 'ignore'))
 
     def run(self):
-        # while not DownloadWorker.task.empty():
         # interval
         self.find_all_href()
         sleep(self.interval)
@@ -548,14 +500,10 @@ class DownloadWorker(object):
 if __name__ == '__main__':
     arguments = docopt(__doc__, version='mini_spider 1.0')
     logger.debug(arguments)
-    '''
-    with open(arguments['-c'], 'r') as f:
-        for i in f:
-            logger.debug('url is %s' % i)
-    '''
     config_file = r'D:\caimaoy\good-coder-python\spider.conf'
     s = SpiderManager(config_file)
     s.run()
+    '''
     # url = r'http://www.baidu.com/img/baidu_jgylogo3.gif?v=22596777.gif'
     # wrong_url = r'http://wwww.baidu.com/img/baidu_jgylogo3.gi=22596777.gif'
     # url = wrong_url
@@ -563,9 +511,8 @@ if __name__ == '__main__':
     # donwload_file(url, filename)
     # s.download_file(url)
     # url = r'http://pycm.baidu.com:8081/'
-    url = r'http://www.baidu.com'
+    # url = r'http://www.baidu.com'
     # url = r'http://caixin.com'
-    '''
     reg = r'.*\.(gif|png|jpg|bmp|html)$'
     d = DownloadWorker(url, './output', reg, 0, 4, 1)
     pool = ThreadPool(ThredPoolThread, 8)
