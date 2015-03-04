@@ -58,6 +58,7 @@ def download_file_to_local(url, filename, timeout=1):
         f = urllib2.urlopen(url, timeout=timeout)
         data = f.read()
     except Exception as e:
+        logger.error('%s error', url)
         logger.error(e)
 
     if data:

@@ -14,6 +14,7 @@ import unittest
 import mini_spider_rebuild as mini
 import os
 
+
 class FuncTest(unittest.TestCase):
 
     # 初始化工作
@@ -48,9 +49,6 @@ class DownloadTest(unittest.TestCase):
     def test_download_file(self):
         mini.download_file_to_local(self.fm, self.to)
         self.assertTrue(os.path.exists(self.to))
-        self.assertRaises(mini.download_file_to_local('wrong_path', 'no'))
-        mini.download_file_to_local('wrong_path', 'no')
-
 
 
 if __name__ == '__main__':
