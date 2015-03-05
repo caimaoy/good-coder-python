@@ -13,6 +13,7 @@ __author__ = 'caimaoy'
 import unittest
 import mini_spider_rebuild as mini
 import os
+from httpretty import HTTPretty, httprettified
 
 
 class FuncTest(unittest.TestCase):
@@ -49,6 +50,24 @@ class DownloadTest(unittest.TestCase):
     def test_download_file(self):
         mini.download_file_to_local(self.fm, self.to)
         self.assertTrue(os.path.exists(self.to))
+
+
+class DownloadWorkerTest(unittest.TestCase):
+
+    # 初始化工作
+    def setUp(self):
+        pass
+
+    # 退出清理工作
+    def tearDown(self):
+        pass
+
+    @httprettified
+    def test_get_url_text(self):
+        HTTPretty.register_uri(HTTPretty.GET, 'http://www.test.com',
+                               body='xxx')
+        dw = mini.DownloadWorker('http://www.test.com', '.', 'reg', 0, 3, 1, 1)
+        self.assertEqual(dw.get_url_text(), 'xxx')
 
 
 if __name__ == '__main__':
