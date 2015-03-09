@@ -57,6 +57,9 @@ class DownloadTest(unittest.TestCase):
 
 class DownloadWorkerTest(unittest.TestCase):
 
+    fm = ''.join(['file:///', os.path.join(FILE_DIR, 'test_download_file')])
+    to = os.path.join(FILE_DIR, 'test_download_file_to')
+
     # 初始化工作
     def setUp(self):
         pass
@@ -64,6 +67,11 @@ class DownloadWorkerTest(unittest.TestCase):
     # 退出清理工作
     def tearDown(self):
         pass
+        '''
+        if os.path.exists(self.to):
+            os.remove(self.to)
+        '''
+
 
     @httprettified
     def test_get_url_text(self):
@@ -92,10 +100,23 @@ class DownloadWorkerTest(unittest.TestCase):
         dw = mini.DownloadWorker('http://www.test.com', '.', 'reg', 0, 3, 1, 1)
         dw.get_url_text()
 
-
     def test_get_url_text_wrong_url(self):
         dw = mini.DownloadWorker('http://wrong.url.me', '.', 'reg', 0, 3, 1, 1)
         dw.get_url_text()
+
+    def test_download_file(self):
+        dw = mini.DownloadWorker('http://no.url.me', '.', 'reg', 0, 3, 1, 1)
+        to = dw.url_to_localfile(self.fm)
+        def del_file(to):
+            if os.path.exists(to):
+                os.remove(to)
+        del_file(to)
+        dw.download_file(self.fm)
+        self.assertTrue(os.path.exists(dw.url_to_localfile(self.fm)))
+        dw.download_file(self.fm)
+        self.assertTrue(os.path.exists(dw.url_to_localfile(self.fm)))
+        del_file(to)
+
 
 class SpiderManagerTest(unittest.TestCase):
 
@@ -120,9 +141,6 @@ class SpiderManagerTest(unittest.TestCase):
             mini.SpiderManager,
             self.wrong_url_config
         )
-
-
-
 
 
 if __name__ == '__main__':
