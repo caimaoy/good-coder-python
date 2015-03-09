@@ -65,9 +65,9 @@ class DownloadWorkerTest(unittest.TestCase):
     @httprettified
     def test_get_url_text(self):
         HTTPretty.register_uri(HTTPretty.GET, 'http://www.test.com',
-                               body='xxx')
+                               body='xx')
         dw = mini.DownloadWorker('http://www.test.com', '.', 'reg', 0, 3, 1, 1)
-        self.assertEqual(dw.get_url_text(), 'xxx')
+        self.assertEqual(dw.get_url_text(), 'xx')
 
 
 if __name__ == '__main__':
