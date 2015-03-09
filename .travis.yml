@@ -8,4 +8,6 @@ install:
 script:
     - nosetests
     - coverage run test_mini_spider.py
+after_success:
+    coveralls
 
