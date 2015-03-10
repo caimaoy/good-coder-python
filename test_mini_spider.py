@@ -111,7 +111,6 @@ class DownloadWorkerTest(unittest.TestCase):
         dw.download_file(self.fm)
         self.assertTrue(os.path.exists(dw.url_to_localfile(self.fm)))
         del_file(to)
-        dw.find_all_href()
 
 
 class SpiderManagerTest(unittest.TestCase):
