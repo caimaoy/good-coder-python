@@ -8,6 +8,7 @@ install:
 script:
     - nosetests
     - coverage run --include=test_mini_spider.py,mini_spider_rebuild.py test_mini_spider.py
+    - coverage report -m
 after_success:
-    coveralls
+    coveralls --verbose
 
