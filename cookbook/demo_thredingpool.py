@@ -124,7 +124,7 @@ class myTread(threading.Thread):
                             self.a -= 1
                     else:
                         raise ValueError, 'Unknown command %r' % command
-                except Exception as e:
+                except Exception:
                     report_error()
                 else:
                     Qout.put(result)
