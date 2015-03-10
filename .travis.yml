@@ -7,7 +7,7 @@ install:
     - pip install coveralls
 script:
     - nosetests
-    - coverage run test_mini_spider.py
+    - coverage run --include=test_mini_spider.py,mini_spider_rebuild.py test_mini_spider.py
 after_success:
     coveralls
 
