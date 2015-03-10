@@ -92,7 +92,6 @@ class myTread(threading.Thread):
     def run(self):
         while True:
             if self.isbusy is True:
-                'I am busy'
                 pass
             else:
                 lock.acquire()
@@ -125,7 +124,7 @@ class myTread(threading.Thread):
                             self.a -= 1
                     else:
                         raise ValueError, 'Unknown command %r' % command
-                except Exception, e:
+                except Exception as e:
                     report_error()
                 else:
                     Qout.put(result)
