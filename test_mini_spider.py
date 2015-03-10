@@ -33,7 +33,7 @@ class FuncTest(unittest.TestCase):
         self.assertEqual(mini.trans_url(inpt), outpt, 'failed')
         self.assertEqual(mini.trans_url('1.+'), '1.+', 'failed')
 
-
+'''
 class DownloadTest(unittest.TestCase):
 
     fm = ''.join(['file:///', os.path.join(FILE_DIR, 'test_download_file')])
@@ -67,11 +67,6 @@ class DownloadWorkerTest(unittest.TestCase):
     # 退出清理工作
     def tearDown(self):
         pass
-        '''
-        if os.path.exists(self.to):
-            os.remove(self.to)
-        '''
-
 
     @httprettified
     def test_get_url_text(self):
@@ -143,6 +138,7 @@ class SpiderManagerTest(unittest.TestCase):
             self.wrong_url_config
         )
 
+'''
 
 if __name__ == '__main__':
     unittest.main()
